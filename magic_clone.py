@@ -172,7 +172,7 @@ def generate_storyboard_video(prompt: str, style: str, text_model: str, image_mo
             [],
         )
 
-    run_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
 
     try:
         storyboard_text, scenes = generate_storyboard(client, prompt, style, text_model)

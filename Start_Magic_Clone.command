@@ -14,6 +14,7 @@ fi
 if [ -z "$HF_TOKEN" ]; then
   echo "HF_TOKEN is not set."
   echo "Set it and retry: export HF_TOKEN='hf_your_token_here'"
+  exit 1
 fi
 
 python3 -m pip install --upgrade pip
