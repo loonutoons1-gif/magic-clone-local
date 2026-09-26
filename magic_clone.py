@@ -15,6 +15,12 @@ DEFAULT_TEXT_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
 DEFAULT_IMAGE_MODEL = "stabilityai/stable-diffusion-xl-base-1.0"
 
 
+class SceneImageGenerationError(RuntimeError):
+    def __init__(self, message: str, image_paths: List[Path]):
+        super().__init__(message)
+        self.image_paths = image_paths
+
+
 def _create_client() -> Tuple[InferenceClient, str]:
     token = os.getenv("HF_TOKEN", "").strip()
     return InferenceClient(token=token or None), token
@@ -113,10 +119,11 @@ def generate_scene_images(
                 height=576,
             )
         except Exception as exc:  # noqa: BLE001
-            raise RuntimeError(
+            raise SceneImageGenerationError(
                 f"Scene {idx} image generation failed with model '{image_model}'. "
                 "Check HF_TOKEN, model availability, and access permissions. "
-                f"Original error: {exc}"
+                f"Original error: {exc}",
+                image_paths=image_paths,
             ) from exc
 
         image_path = OUTPUTS_DIR / f"{run_stamp}_scene_{idx}.png"
@@ -133,12 +140,16 @@ def make_slideshow_video(image_paths: List[Path], run_stamp: str, fps: int = 6, 
     output_path = OUTPUTS_DIR / f"{run_stamp}.mp4"
     frames_per_scene = max(1, fps * scene_duration_sec)
 
-    writer = imageio.get_writer(str(output_path), fps=fps, codec="libx264", format="FFMPEG")
+    writer = imageio.get_writer(str(output_path), fps=fps, format="FFMPEG")
     try:
         for image_path in image_paths:
             frame = imageio.imread(image_path)
             if frame.ndim == 2:
                 frame = np.stack([frame, frame, frame], axis=-1)
+            elif frame.ndim == 3 and frame.shape[2] == 4:
+                frame = frame[:, :, :3]
+            elif frame.ndim == 3 and frame.shape[2] == 1:
+                frame = np.repeat(frame, 3, axis=2)
             for _ in range(frames_per_scene):
                 writer.append_data(frame)
     finally:
@@ -158,7 +169,7 @@ def generate_storyboard_video(prompt: str, style: str, text_model: str, image_mo
         return (
             "Please enter a prompt before generating.",
             "",
-            None,
+            "",
             [],
         )
 
@@ -168,7 +179,7 @@ def generate_storyboard_video(prompt: str, style: str, text_model: str, image_mo
             "HF_TOKEN is not set. Set it as an environment variable, then retry. "
             "Example (PowerShell): setx HF_TOKEN \"hf_xxx\" and restart the terminal.",
             "",
-            None,
+            "",
             [],
         )
 
@@ -180,17 +191,24 @@ def generate_storyboard_video(prompt: str, style: str, text_model: str, image_mo
         return (
             f"Storyboard generation failed: {exc}",
             "",
-            None,
+            "",
             [],
         )
 
     try:
         image_paths = generate_scene_images(client, scenes, style, image_model, run_stamp)
+    except SceneImageGenerationError as exc:
+        return (
+            f"Image generation failed: {exc}",
+            storyboard_text,
+            "",
+            [str(path) for path in exc.image_paths],
+        )
     except Exception as exc:  # noqa: BLE001
         return (
             f"Image generation failed: {exc}",
             storyboard_text,
-            None,
+            "",
             [],
         )
 
@@ -200,7 +218,7 @@ def generate_storyboard_video(prompt: str, style: str, text_model: str, image_mo
         return (
             f"Video rendering failed: {exc}",
             storyboard_text,
-            None,
+            "",
             [str(path) for path in image_paths],
         )
 

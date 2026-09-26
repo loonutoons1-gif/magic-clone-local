@@ -58,10 +58,10 @@ The launcher installs dependencies and starts Gradio.
 
 Generated files are saved in:
 
-- `outputs/YYYYMMDD_HHMMSS_scene_1.png`
-- `outputs/YYYYMMDD_HHMMSS_scene_2.png`
-- `outputs/YYYYMMDD_HHMMSS_scene_3.png`
-- `outputs/YYYYMMDD_HHMMSS.mp4`
+- `outputs/YYYYMMDD_HHMMSS_ffffff_scene_1.png`
+- `outputs/YYYYMMDD_HHMMSS_ffffff_scene_2.png`
+- `outputs/YYYYMMDD_HHMMSS_ffffff_scene_3.png`
+- `outputs/YYYYMMDD_HHMMSS_ffffff.mp4`
 
 ## Model/access caveats
 

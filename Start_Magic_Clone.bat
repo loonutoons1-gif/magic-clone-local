@@ -20,8 +20,9 @@ if "%HF_TOKEN%"=="" (
   echo Set it once in PowerShell, then reopen this launcher:
   echo   setx HF_TOKEN "hf_your_token_here"
   echo.
-  echo You can continue now, but Hugging Face requests will likely fail.
-  echo.
+  echo This launcher will now exit so you can set the token first.
+  pause
+  exit /b 1
 )
 
 echo Installing/updating dependencies...
