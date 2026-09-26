@@ -1,6 +1,4 @@
 gradio>=4.44.0
 huggingface_hub>=0.24.0
-imageio>=2.34.0
 imageio-ffmpeg>=0.5.1
-numpy>=1.24.0
 Pillow>=10.0.0

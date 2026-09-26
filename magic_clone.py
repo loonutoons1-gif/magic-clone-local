@@ -1,11 +1,11 @@
 import os
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple
 
 import gradio as gr
-import imageio.v2 as imageio
-import numpy as np
+import imageio_ffmpeg
 from huggingface_hub import InferenceClient
 
 OUTPUTS_DIR = Path(__file__).resolve().parent / "outputs"
@@ -139,22 +139,43 @@ def make_slideshow_video(image_paths: List[Path], run_stamp: str, fps: int = 6, 
         raise RuntimeError("No scene images were created, so MP4 rendering cannot start.")
 
     output_path = OUTPUTS_DIR / f"{run_stamp}.mp4"
-    frames_per_scene = max(1, fps * scene_duration_sec)
+    concat_file = OUTPUTS_DIR / f"{run_stamp}_concat.txt"
+    scene_duration_sec = max(1, int(scene_duration_sec))
 
-    writer = imageio.get_writer(str(output_path), fps=fps)
+    lines = []
+    for image_path in image_paths:
+        frame_path = image_path.resolve().as_posix().replace("'", "'\\''")
+        lines.append(f"file '{frame_path}'")
+        lines.append(f"duration {scene_duration_sec}")
+    last_frame_path = image_paths[-1].resolve().as_posix().replace("'", "'\\''")
+    lines.append(f"file '{last_frame_path}'")
+    concat_file.write_text("\n".join(lines), encoding="utf-8")
+
+    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    command = [
+        ffmpeg_exe,
+        "-y",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        str(concat_file),
+        "-vf",
+        f"fps={max(1, int(fps))}",
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        str(output_path),
+    ]
     try:
-        for image_path in image_paths:
-            frame = imageio.imread(image_path)
-            if frame.ndim == 2:
-                frame = np.stack([frame, frame, frame], axis=-1)
-            elif frame.ndim == 3 and frame.shape[2] == 4:
-                frame = frame[:, :, :3]
-            elif frame.ndim == 3 and frame.shape[2] == 1:
-                frame = np.repeat(frame, 3, axis=2)
-            for _ in range(frames_per_scene):
-                writer.append_data(frame)
+        subprocess.run(command, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stderr or exc.stdout or str(exc)).strip()
+        raise RuntimeError(f"FFmpeg MP4 rendering failed: {detail}") from exc
     finally:
-        writer.close()
+        concat_file.unlink(missing_ok=True)
 
     if not output_path.exists() or output_path.stat().st_size == 0:
         raise RuntimeError("MP4 file was not created correctly. Please try again.")
@@ -163,6 +184,12 @@ def make_slideshow_video(image_paths: List[Path], run_stamp: str, fps: int = 6, 
 
 
 def generate_storyboard_video(prompt: str, style: str, text_model: str, image_model: str):
+    """Run the full generation pipeline.
+
+    Returns:
+        tuple[str, str, str, list[str]]: (status_text, storyboard_text, video_path, scene_image_paths).
+        On failures, `video_path` is an empty string and `scene_image_paths` may be partial.
+    """
     prompt = (prompt or "").strip()
     style = (style or "").strip()
 
