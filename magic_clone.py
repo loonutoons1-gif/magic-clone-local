@@ -34,7 +34,8 @@ def _chat_completion(client: InferenceClient, model: str, messages: List[dict]) 
             max_tokens=350,
             temperature=0.8,
         )
-        return (response.choices[0].message.content or "").strip()
+        content = response.choices[0].message.content
+        return (content or "").strip() if isinstance(content, str) else str(content)
 
     # Compatibility path for older huggingface_hub versions.
     response = client.chat_completion(
@@ -140,7 +141,7 @@ def make_slideshow_video(image_paths: List[Path], run_stamp: str, fps: int = 6, 
     output_path = OUTPUTS_DIR / f"{run_stamp}.mp4"
     frames_per_scene = max(1, fps * scene_duration_sec)
 
-    writer = imageio.get_writer(str(output_path), fps=fps, format="FFMPEG")
+    writer = imageio.get_writer(str(output_path), fps=fps)
     try:
         for image_path in image_paths:
             frame = imageio.imread(image_path)
