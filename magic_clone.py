@@ -119,17 +119,16 @@ def generate_scene_images(
                 width=1024,
                 height=576,
             )
+            image_path = OUTPUTS_DIR / f"{run_stamp}_scene_{idx}.png"
+            image.save(image_path)
+            image_paths.append(image_path)
         except Exception as exc:  # noqa: BLE001
             raise SceneImageGenerationError(
                 f"Scene {idx} image generation failed with model '{image_model}'. "
-                "Check HF_TOKEN, model availability, and access permissions. "
+                "Check HF_TOKEN, model availability, filesystem permissions, and access rights. "
                 f"Original error: {exc}",
                 image_paths=image_paths,
             ) from exc
-
-        image_path = OUTPUTS_DIR / f"{run_stamp}_scene_{idx}.png"
-        image.save(image_path)
-        image_paths.append(image_path)
 
     return image_paths
 
@@ -163,6 +162,8 @@ def make_slideshow_video(image_paths: List[Path], run_stamp: str, fps: int = 6, 
         concat_file.name,
         "-vf",
         f"fps={max(1, int(fps))}",
+        "-c:v",
+        "mpeg4",
         "-pix_fmt",
         "yuv420p",
         "-movflags",
@@ -183,7 +184,9 @@ def make_slideshow_video(image_paths: List[Path], run_stamp: str, fps: int = 6, 
     return output_path
 
 
-def generate_storyboard_video(prompt: str, style: str, text_model: str, image_model: str):
+def generate_storyboard_video(
+    prompt: str, style: str, text_model: str, image_model: str
+) -> Tuple[str, str, str, List[str]]:
     """Run the full generation pipeline.
 
     Returns:
