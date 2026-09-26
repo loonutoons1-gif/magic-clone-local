@@ -144,11 +144,9 @@ def make_slideshow_video(image_paths: List[Path], run_stamp: str, fps: int = 6, 
 
     lines = []
     for image_path in image_paths:
-        frame_path = image_path.resolve().as_posix().replace("'", "'\\''")
-        lines.append(f"file '{frame_path}'")
+        lines.append(f"file '{image_path.name}'")
         lines.append(f"duration {scene_duration_sec}")
-    last_frame_path = image_paths[-1].resolve().as_posix().replace("'", "'\\''")
-    lines.append(f"file '{last_frame_path}'")
+    lines.append(f"file '{image_paths[-1].name}'")
     concat_file.write_text("\n".join(lines), encoding="utf-8")
 
     ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
@@ -160,7 +158,7 @@ def make_slideshow_video(image_paths: List[Path], run_stamp: str, fps: int = 6, 
         "-safe",
         "0",
         "-i",
-        str(concat_file),
+        concat_file.name,
         "-vf",
         f"fps={max(1, int(fps))}",
         "-pix_fmt",
@@ -170,7 +168,7 @@ def make_slideshow_video(image_paths: List[Path], run_stamp: str, fps: int = 6, 
         str(output_path),
     ]
     try:
-        subprocess.run(command, check=True, capture_output=True, text=True)
+        subprocess.run(command, check=True, capture_output=True, text=True, cwd=OUTPUTS_DIR)
     except subprocess.CalledProcessError as exc:
         detail = (exc.stderr or exc.stdout or str(exc)).strip()
         raise RuntimeError(f"FFmpeg MP4 rendering failed: {detail}") from exc
